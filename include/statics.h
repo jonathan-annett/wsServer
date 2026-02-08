@@ -137,8 +137,69 @@ static int http_parse_request_line(char *buf, char **out_method, char **out_path
 	return 0;
 }
 
+bool ends_with(const char *str, const char *suffix) {
+    if (!str || !suffix) {
+        return false; // Handle potential null pointers, though standard C functions assume non-null
+    }
+    size_t str_len = strlen(str);
+    size_t suffix_len = strlen(suffix);
+
+    if (suffix_len > str_len) {
+        return false; // A string cannot end with a suffix longer than itself
+    }
+
+    // Compare the last 'suffix_len' characters of 'str' with 'suffix'
+    // memcmp is efficient for comparing blocks of memory
+    return memcmp(str + str_len - suffix_len, suffix, suffix_len) == 0;
+}
+
+bool found_root_alias = false;
+static void find_root_alias() {
+	if (found_root_alias) return;
+		
+	found_root_alias = true;   // only call this function once, on first server "hit"
+	const char * index_html = "/index.html";
+	const char * dot_html = ".html";
+	const char * classic_root = "/";
+	if (strcmp(found_root_alias,index_html)!=0) return;// if it has already been set to something, abort. 
+
+	// scan the files. if we find /index.html or html, use that entry.
+	// otherwise count the .html files. if there is exactly 1, use that
+	// otherwise just let it fall to a 404.
+
+	// *note* the default data url is "/" so this loop will always find that.
+	const ws_static_asset_set_t *a = ws_get_static_assets();
+	
+	uint32_t html_count = 0;
+	uint32_t i, gotIt=0;
+	for (i = 0; i < a->count; i++) {
+		if (a->urls[i]) {
+			if ( (strcmp(a->urls[i], index_html) == 0)||
+			     (strcmp(a->urls[i], classic_root) == 0)
+				)  {
+				sprintf (static_root_alias,"%s",a->urls[i]);
+				printf ("Will use [%s] for default root /\n",static_root_alias );
+				
+				return;
+			}
+			if (ends_with(a->urls[i],dot_html)) {
+				gotIt = i;
+				html_count++;
+			}
+		}
+	}
+
+	if ( html_count==1 ) {
+		sprintf (static_root_alias,"%s",a->urls[gotIt]);
+		printf ("Will use [%s] for default root /\n",static_root_alias );
+	}
+}
+
+
 static int static_find_path(const char *path)
 {
+	if (!found_root_alias)find_root_alias();
+	
 	char tmp[512];
 	const char *q;
 	size_t n;
