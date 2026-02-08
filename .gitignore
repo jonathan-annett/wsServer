@@ -25,3 +25,4 @@ tests/wsserver_autobahn/report
 tests/fuzzy/out/
 examples/echo/echo
 examples/ping/ping
+extra/dir2statics/dir2statics

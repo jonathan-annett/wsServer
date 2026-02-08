@@ -1010,6 +1010,10 @@ static inline int is_valid_frame(int opcode)
 	);
 }
 
+#if WS_STATICS
+#include <statics.h>
+#else
+
 /**
  * @brief Do the handshake process.
  *
@@ -1070,6 +1074,7 @@ static int do_handshake(struct ws_frame_data *wfd)
 	free(response);
 	return (0);
 }
+#endif
 
 /**
  * @brief Sends a close frame, accordingly with the @p close_code

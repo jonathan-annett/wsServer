@@ -17,7 +17,7 @@ CC       ?= gcc
 AR        = ar
 LIB_WS    = libws.a
 INCLUDE   = include
-CFLAGS   += -Wall -Wextra -O2
+CFLAGS   += -Wall -Wextra -O2  -DWS_STATICS 
 CFLAGS   += -I $(INCLUDE) -std=c99 -pedantic
 LDLIBS    = $(LIB_WS) -pthread
 ARFLAGS   =  cru
@@ -26,6 +26,7 @@ MANPAGES  = doc/man/man3
 AFL_FUZZ ?= no
 VERBOSE_EXAMPLES ?= yes
 VALIDATE_UTF8 ?= yes
+
 
 # Prefix
 ifeq ($(PREFIX),)
@@ -71,11 +72,22 @@ PKGDIR = $(LIBDIR)/pkgconfig
 # Extra paths
 TOYWS  = extra/toyws
 
+DIR2STATICS_DIR = extra/dir2statics
+DIR2STATICS_BIN = $(DIR2STATICS_DIR)/dir2statics
+DIR2STATICS_SRC = $(DIR2STATICS_DIR)/dir2statics.c
+# Echo example statics (generated)
+ECHO_STATIC_DIR = examples/echo
+ECHO_STATIC_HDR = $(ECHO_STATIC_DIR)/echo-static.h
+
+# Only top-level files with known extensions will be tracked as dependencies
+ECHO_STATIC_EXTS = html htm js css json txt svg png jpg jpeg gif ico wasm
+ECHO_STATIC_INPUTS = $(foreach e,$(ECHO_STATIC_EXTS),$(wildcard $(ECHO_STATIC_DIR)/*.$(e)))
+
 # All
 ifeq ($(AFL_FUZZ),no)
-all: Makefile libws.a examples $(TOYWS)/toyws_test
+all: Makefile libws.a  $(DIR2STATICS_BIN) examples $(TOYWS)/toyws_test
 else
-all: Makefile libws.a fuzzy
+all: Makefile libws.a fuzzy  
 endif
 
 #
@@ -106,14 +118,25 @@ $(LIB_WS): $(WS_OBJ)
 	$(Q)$(AR) $(ARFLAGS) $(LIB_WS) $^
 
 # Examples
+
+# Generate embedded statics header for the echo example
+$(ECHO_STATIC_HDR): $(DIR2STATICS_BIN) $(ECHO_STATIC_INPUTS)
+	@echo "  GEN     $@"
+	$(Q)$(DIR2STATICS_BIN) $(ECHO_STATIC_DIR) $@
+
 examples: examples/echo/echo examples/ping/ping
-examples/echo/echo: examples/echo/echo.o $(LIB_WS)
+
+# Ensure statics header exists before compiling echo.c
+examples/echo/echo.o: $(ECHO_STATIC_HDR)
+examples/echo/echo.o: CFLAGS += -I $(ECHO_STATIC_DIR) -DDEMO_WS_STATIC
+
+examples/echo/echo: examples/echo/echo.o   $(LIB_WS)	
 	@echo "  LINK    $@"
 	$(Q)$(CC) $(CFLAGS) $< -o $@ $(LDLIBS)
 examples/ping/ping: examples/ping/ping.o $(LIB_WS)
 	@echo "  LINK    $@"
 	$(Q)$(CC) $(CFLAGS) $< -o $@ $(LDLIBS)
-
+	
 # Autobahn tests
 tests: examples
 	$(MAKE) all -C tests/ VERBOSE_EXAMPLES="$(VERBOSE_EXAMPLES)"
@@ -129,6 +152,11 @@ $(TOYWS)/toyws_test: $(TOYWS)/tws_test.o $(TOYWS)/toyws.o
 	@echo "  LINK    $@"
 	$(Q)$(CC) $(CFLAGS) $^ -o $@
 
+# dir2statics tool
+$(DIR2STATICS_BIN): $(DIR2STATICS_SRC)
+	@echo "  LINK    $@"
+	$(Q)$(CC) $(CFLAGS) $< -o $@	
+
 # Install rules
 install: libws.a wsserver.pc
 	@echo "  INSTALL      $@"
@@ -138,6 +166,9 @@ install: libws.a wsserver.pc
 	@#Headers
 	install -d $(DESTDIR)$(INCDIR)/wsserver
 	install -m 644 $(INCLUDE)/*.h $(DESTDIR)$(INCDIR)/wsserver
+	@#Tools
+	install -d $(DESTDIR)$(BINDIR)
+	install -m 0755 $(DIR2STATICS_BIN) $(DESTDIR)$(BINDIR)/
 	@#Manpages
 	install -d $(DESTDIR)$(MANDIR)/man3
 	install -m 0644 $(MANPAGES)/*.3 $(DESTDIR)$(MANDIR)/man3/
@@ -147,6 +178,7 @@ uninstall:
 	@echo "  UNINSTALL      $@"
 	rm -f  $(DESTDIR)$(LIBDIR)/$(LIB_WS)
 	rm -rf $(DESTDIR)$(INCDIR)/wsserver
+	rm -f  $(DESTDIR)$(BINDIR)/dir2statics
 	rm -f  $(DESTDIR)$(MANDIR)/man3/ws_getaddress.3
 	rm -f  $(DESTDIR)$(MANDIR)/man3/ws_getport.3
 	rm -f  $(DESTDIR)$(MANDIR)/man3/ws_sendframe.3
@@ -194,5 +226,8 @@ clean:
 	@rm -f $(TOYWS)/toyws.o $(TOYWS)/tws_test.o $(TOYWS)toyws_test
 	@rm -f examples/echo/{echo,echo.o}
 	@rm -f examples/ping/{ping,ping.o}
+	@rm -f $(DIR2STATICS_DIR)/dir2statics
+	@rm -f $(DIR2STATICS_DIR)/dir2statics.o
 	@$(MAKE) clean -C tests/
 	@$(MAKE) clean -C tests/fuzzy
+	@rm -f $(ECHO_STATIC_HDR)
