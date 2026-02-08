@@ -4,13 +4,7 @@
 #include <ctype.h>
 
 #if WS_STATICS
-
-  #if defined(_MSC_VER)
     #pragma message("wsServer: WS_STATICS enabled (static HTTP fallback compiled in)")
-  #elif defined(__clang__) || defined(__GNUC__)
-    #warning "wsServer: WS_STATICS enabled (static HTTP fallback compiled in)"
-  #endif
-
 #endif
 
 typedef struct ws_static_asset_set {
@@ -91,23 +85,33 @@ static const char *http_reason_phrase(int code)
 		default:  return "OK";
 	}
 }
+bool ends_with(const char *str, const char *suffix);
 
 static int http_send_response(struct ws_connection *client,
 	int code, const char *content_type, const uint8_t *body, uint32_t body_len)
 {
 	char hdr[512];
+	char customHdrs[512];
 	int hdr_len;
 
 	if (!content_type) content_type = "text/plain; charset=utf-8";
 
+	if (content_type) {
+		if ( !ends_with (content_type,"\r\n") ){
+			// to supply more than just content_type, supply the full header lines, separated by \r\n, ending in \r\n
+			snprintf(customHdrs,sizeof(customHdrs),"Content-Type: %s\r\n",content_type);
+		}
+	}
+
+
 	hdr_len = snprintf(hdr, sizeof(hdr),
 		"HTTP/1.1 %d %s\r\n"
 		"Connection: close\r\n"
-		"Content-Type: %s\r\n"
+		"%s"
 		"Content-Length: %" PRIu32 "\r\n"
 		"Cache-Control: no-cache\r\n"
 		"\r\n",
-		code, http_reason_phrase(code), content_type, body_len);
+		code, http_reason_phrase(code), customHdrs, body_len);
 
 	if (hdr_len < 0 || (size_t)hdr_len >= sizeof(hdr))
 		return -1;
@@ -161,7 +165,7 @@ static void find_root_alias() {
 	const char * index_html = "/index.html";
 	const char * dot_html = ".html";
 	const char * classic_root = "/";
-	if (strcmp(found_root_alias,index_html)!=0) return;// if it has already been set to something, abort. 
+	if (strcmp(static_root_alias,index_html)!=0) return;// if it has already been set to something, abort. 
 
 	// scan the files. if we find /index.html or html, use that entry.
 	// otherwise count the .html files. if there is exactly 1, use that
@@ -177,7 +181,7 @@ static void find_root_alias() {
 			if ( (strcmp(a->urls[i], index_html) == 0)||
 			     (strcmp(a->urls[i], classic_root) == 0)
 				)  {
-				sprintf (static_root_alias,"%s",a->urls[i]);
+				snprintf (static_root_alias,sizeof (static_root_alias),"%s",a->urls[i]);
 				printf ("Will use [%s] for default root /\n",static_root_alias );
 				
 				return;
@@ -190,7 +194,7 @@ static void find_root_alias() {
 	}
 
 	if ( html_count==1 ) {
-		sprintf (static_root_alias,"%s",a->urls[gotIt]);
+		snprintf (static_root_alias,sizeof (static_root_alias), "%s",a->urls[gotIt]);
 		printf ("Will use [%s] for default root /\n",static_root_alias );
 	}
 }
