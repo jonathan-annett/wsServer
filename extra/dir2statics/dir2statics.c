@@ -247,6 +247,7 @@ int main(int argc, char **argv)
 		"    const uint8_t * const *content;\n"
 		"    const uint32_t *sizes;\n"
 		"} ws_static_asset_set_t;\n\n"
+		"extern char static_root_alias[32];\n\n"
 
 
 		"void ws_set_static_assets(const ws_static_asset_set_t *set);\n"

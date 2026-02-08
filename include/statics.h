@@ -34,6 +34,7 @@ static const uint32_t sizes[] = { (uint32_t)(sizeof(default_static_html_text)-1)
 static const ws_static_asset_set_t default_set = {
     1, urls, types, bodies, sizes
 };
+char static_root_alias[32]="/index.html";
 
 ws_static_asset_set_t *g_assets = ( ws_static_asset_set_t *) &default_set;
 
@@ -144,6 +145,10 @@ static int static_find_path(const char *path)
 	uint32_t i;
 
 	if (!path || !*path) path = "/";
+
+	if (path[0]=='/' && path[1]==0) {
+		path = static_root_alias;
+	}
 
 	q = strchr(path, '?');
 	n = q ? (size_t)(q - path) : strlen(path);

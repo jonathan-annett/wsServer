@@ -19,6 +19,8 @@ void initEmbeddedAssets(void);typedef struct ws_static_asset_set {
     const uint32_t *sizes;
 } ws_static_asset_set_t;
 
+extern char static_root_alias[32];
+
 void ws_set_static_assets(const ws_static_asset_set_t *set);
 
 #ifdef WS_STATICS_DATA_IMPLEMENTATION

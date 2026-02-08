@@ -128,7 +128,7 @@ examples: examples/echo/echo examples/ping/ping
 
 # Ensure statics header exists before compiling echo.c
 examples/echo/echo.o: $(ECHO_STATIC_HDR)
-examples/echo/echo.o: CFLAGS += -I $(ECHO_STATIC_DIR) -DDEMO_WS_STATIC
+examples/echo/echo.o: CFLAGS += -I $(ECHO_STATIC_DIR)
 
 examples/echo/echo: examples/echo/echo.o   $(LIB_WS)	
 	@echo "  LINK    $@"
@@ -226,8 +226,7 @@ clean:
 	@rm -f $(TOYWS)/toyws.o $(TOYWS)/tws_test.o $(TOYWS)toyws_test
 	@rm -f examples/echo/{echo,echo.o}
 	@rm -f examples/ping/{ping,ping.o}
-	@rm -f $(DIR2STATICS_DIR)/dir2statics
-	@rm -f $(DIR2STATICS_DIR)/dir2statics.o
+	@rm -f $(DIR2STATICS_DIR)/{dir2statics,dir2statics.o}
 	@$(MAKE) clean -C tests/
 	@$(MAKE) clean -C tests/fuzzy
 	@rm -f $(ECHO_STATIC_HDR)

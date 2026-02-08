@@ -19,7 +19,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#ifdef WS_STATICS
+#define WS_STATICS_DATA_IMPLEMENTATION
+#include "echo-static.h"
+#endif
 #include <ws.h>
+
 
 /**
  * @dir examples/
@@ -116,6 +121,11 @@ void onmessage(ws_cli_conn_t client,
  */
 int main(void)
 {
+#ifdef WS_STATICS
+	initEmbeddedAssets();
+	sprintf(static_root_alias,"%s","/echo.html");
+
+#endif
 	ws_socket(&(struct ws_server){
 		/*
 		 * Bind host:
