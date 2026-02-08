@@ -4,6 +4,8 @@
 [![Build Status for Windows, Linux, and macOS](https://github.com/Theldus/wsServer/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/Theldus/wsServer/actions/workflows/c-cpp.yml)
 
 wsServer - a very tiny WebSocket server library written in C
+---
+<img width="auto" height="200px" src="now-with-assets.png"></td>
 
 ## Library
 
@@ -200,3 +202,41 @@ comments [here](https://github.com/Theldus/wsServer/discussions/30).
 wsServer is licensed under GPLv3 License. Written by Davidson Francis and
 [others](https://github.com/Theldus/wsServer/graphs/contributors)
 contributors.
+
+
+## Static Assets Integration
+
+Create a header file from a folder.
+
+```bash
+dir2statics ./ echo-statics.h
+```
+
+The header will include the embedded assets and a function **initEmbeddedAssets**()
+
+```c
+
+void initEmbeddedAssets(void){
+		ws_set_static_assets(&embedded_assets);
+}
+
+```
+
+
+```c
+
+#include "echo-static.h"
+
+
+int main(void)
+{
+
+    initEmbeddedAssets();
+    sprintf(static_root_alias,"%s","/echo.html");
+
+    // start your server as usual
+	ws_socket(&(struct ws_server){
+	//...
+
+
+```
