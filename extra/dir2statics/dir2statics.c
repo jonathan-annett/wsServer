@@ -26,6 +26,9 @@
 
 #define _POSIX_C_SOURCE 200809L
 
+
+#define GZIP
+
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -35,6 +38,15 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <strings.h>
+#include <sha1.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#ifdef GZIP
+#include <zlib.h>
+#define BUFFER_SIZE 8192 // Max line length or buffer size
+#endif
+
 /* ---------- small helpers ---------- */
 
 static void die(const char *msg)
@@ -155,19 +167,61 @@ static uint8_t *read_file(const char *path, uint32_t *out_size)
 	return buf;
 }
 
+
 /* Emit bytes as hex array */
-static void emit_u8_array(FILE *out, const char *ident, const uint8_t *data, uint32_t size)
+static size_t emit_u8_array(FILE *out, const char *ident, const uint8_t *data, uint32_t size)
 {
 	fprintf(out, "static const uint8_t %s[%u] = {", ident, size);
 	for (uint32_t i = 0; i < size; i++)
 	{
-		if (i % 12 == 0) fprintf(out, "\n  ");
+		if (i % 16 == 0) fprintf(out, "\n/* %04X*/",i);
 		fprintf(out, "0x%02x", (unsigned)data[i]);
 		if (i + 1 != size) fprintf(out, ", ");
 	}
 	if (size == 0) fprintf(out, "\n  /* empty */");
 	fprintf(out, "\n};\n\n");
+	return size;
 }
+
+#ifdef GZIP
+/* Emit bytes as gzipped hex array */
+static size_t emit_u8_gz_array(FILE *out, const char *ident, const uint8_t *data, uint32_t size)
+{
+    z_stream strm = {0};
+
+    // 15 is the default window size; +16 enables GZIP format
+    if (deflateInit2(&strm, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 
+                     15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        return 0;
+    }
+
+	size_t compressed_size = deflateBound(&strm, size);
+
+	unsigned char *compressed_data = malloc (compressed_size);
+	if (!compressed_data) die("malloc");
+
+
+    strm.next_in   = (Bytef *)data;
+    strm.avail_in  = (uInt) size;
+    strm.next_out  = (Bytef *)compressed_data;
+    strm.avail_out = (uInt) compressed_size;
+
+
+    // Use Z_FINISH to complete compression in one step if the buffer is large enough
+    int ret = deflate(&strm, Z_FINISH);
+    
+    if (ret == Z_STREAM_END) {
+        compressed_size = strm.total_out; // Actual size of compressed data
+        deflateEnd(&strm);
+		emit_u8_array(out,ident, compressed_data, compressed_size);
+		free(compressed_data);
+        return compressed_size;
+    }
+    deflateEnd(&strm);
+	free(compressed_data);
+    return 0 ;
+}
+#endif
 
 /* ---------- main ---------- */
 
@@ -180,6 +234,32 @@ int main(int argc, char **argv)
 			argv[0]);
 		return 2;
 	}
+
+	SHA1Context ctx;                  /* SHA-1 Context.                */
+
+	const char hexEncode[16] = "0123456789ABCDEF";
+	struct {
+			char Etag_Colon_Quote[8]; // 'Etag: \"'
+			char hexhash[SHA1HashSize]; // first 20 hex bytes
+			unsigned char hash[SHA1HashSize]; // second 20 hex bytes, and binary hash temp
+			char Quote_crlf[6]; //  '\"\r\n"
+#ifdef GZIP							   //  '12345678901234567890123 4
+			char ContentEncoding[26];  //  'Content-Encoding: gzip\r\n'
+#endif
+			char contentTypeTag[14];  // 'Content-Type: '
+			char contentType[64]; //
+		} CustomHeader, *cHdr;
+	
+	char * c;
+	c = &CustomHeader.Etag_Colon_Quote[0]; sprintf(c,"Etag: %c",'\\');c[7]='"';
+	c = &CustomHeader.Quote_crlf[0];sprintf(c,"%c%c%cr%c",'\\','"','\\','\\');c[5]='n';
+#ifdef GZIP
+	c = &CustomHeader.ContentEncoding[0];sprintf(c,"Content-Encoding: %s\\r\\","gzip");c[25]='n';
+#endif
+	c = &CustomHeader.contentTypeTag[0];sprintf(c,"%s","Content-Type:");c[13]=' ';
+	
+
+	
 
 	const char *in_dir = argv[1];
 	const char *out_path = argv[2];
@@ -195,6 +275,10 @@ int main(int argc, char **argv)
 	size_t cap = 32, count = 0;
 	char **names = (char **)malloc(cap * sizeof(char *));
 	if (!names) die("malloc");
+
+	cHdr = malloc(cap * sizeof(CustomHeader));
+	if (!cHdr) die("malloc");
+
 
 	struct dirent *de;
 	while ((de = readdir(d)) != NULL)
@@ -213,6 +297,10 @@ int main(int argc, char **argv)
 			char **tmp = (char **)realloc(names, cap * sizeof(char *));
 			if (!tmp) die("realloc");
 			names = tmp;
+
+			tmp = (char **)realloc(cHdr, cap * sizeof(CustomHeader));
+			if (!tmp) die("realloc");
+			cHdr = (void*) tmp;
 		}
 		names[count++] = xstrdup(nm);
 	}
@@ -255,6 +343,16 @@ int main(int argc, char **argv)
 		"#ifdef WS_STATICS_DATA_IMPLEMENTATION\n"
 		"\n");
 
+	/* emit tables */
+	fprintf(out, "const uint32_t static_count = %u;\n\n", (unsigned)count);
+
+	fprintf(out, "const char *static_urls[%u] = {\n", (unsigned)count);
+	for (size_t i = 0; i < count; i++)
+		fprintf(out, "  \"%s%s\"%s\n", url_prefix, names[i], (i + 1 == count) ? "" : ",");
+	fprintf(out, "};\n\n");
+
+
+
 	/* emit embedded file arrays */
 	for (size_t i = 0; i < count; i++)
 	{
@@ -278,26 +376,45 @@ int main(int argc, char **argv)
 			continue;
 		}
 
+
+		
+		SHA1Reset(&ctx);
+		SHA1Input(&ctx, data, sz);
+		SHA1Result(&ctx,CustomHeader.hash);
+		char * hexOut = &CustomHeader.hexhash[0];
+		unsigned char *decIn = &CustomHeader.hash[0];
+		for (int x = 0; x < SHA1HashSize; x ++ , decIn++) {
+			*(hexOut++) = hexEncode[ *decIn >> 4  ];
+			*(hexOut++) = hexEncode[ *decIn & 0xf ];			
+		}
+		snprintf(CustomHeader.contentType,sizeof (CustomHeader.contentType),"%s\\r\\n", content_type_for_filename(names[i]));
+
+		// copy the entire struct (maps to null termed string)
+		memmove( &cHdr[i], &CustomHeader, sizeof(CustomHeader));
+
 		char arrname[600];
 		snprintf(arrname, sizeof(arrname), "ws_static_%s", ident);
+#ifdef GZIP
+		size_t content_size = emit_u8_gz_array(out, arrname, data, sz);
+#else
+		size_t content_size = emit_u8_array(out, arrname, data, sz);
+#endif
+		
 
-		emit_u8_array(out, arrname, data, sz);
+
 		free(data);
+
 	}
 
-	/* emit tables */
-	fprintf(out, "const uint32_t static_count = %u;\n\n", (unsigned)count);
-
-	fprintf(out, "const char *static_urls[%u] = {\n", (unsigned)count);
-	for (size_t i = 0; i < count; i++)
-		fprintf(out, "  \"%s%s\"%s\n", url_prefix, names[i], (i + 1 == count) ? "" : ",");
-	fprintf(out, "};\n\n");
-
 	fprintf(out, "const char *static_contentType[%u] = {\n", (unsigned)count);
-	for (size_t i = 0; i < count; i++)
-		fprintf(out, "  \"%s\"%s\n", content_type_for_filename(names[i]), (i + 1 == count) ? "" : ",");
+	for (size_t i = 0; i < count; i++) {
+		fprintf(out, "  // %s\n", names[i]);
+		fprintf(out, "  \"%s\"%s\n", (char *) &cHdr[i], (i + 1 == count) ? "" : ",");
+	}
 	fprintf(out, "};\n\n");
 
+
+	
 	fprintf(out, "const uint8_t *static_content[%u] = {\n", (unsigned)count);
 	for (size_t i = 0; i < count; i++)
 	{
@@ -342,6 +459,8 @@ int main(int argc, char **argv)
 
 	for (size_t i = 0; i < count; i++) free(names[i]);
 	free(names);
+		
+	free(cHdr);
 
 	return 0;
 }

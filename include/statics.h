@@ -1,5 +1,12 @@
 #pragma once
 
+#define _GNU_SOURCE  // Required for strcasestr on some Linux systems
+#include <string.h>
+// belt and suspenders: strcasestr looks like this
+extern char *strcasestr(const char *haystack, const char *needle);
+// rename contentType for code readability: full header lines can be used to add more context
+#define CUSTOM_HEADERS contentType
+#include <stdio.h>
 #include <stdint.h>
 #include <ctype.h>
 
@@ -10,8 +17,8 @@
 typedef struct ws_static_asset_set {
     uint32_t count;
     const char * const *urls;
-    const char * const *contentType;
-    const uint8_t * const *content;
+	const char * const *contentType;
+	const uint8_t * const *content;
     const uint32_t *sizes;
 } ws_static_asset_set_t;
 
@@ -86,6 +93,8 @@ static const char *http_reason_phrase(int code)
 	}
 }
 bool ends_with(const char *str, const char *suffix);
+char* get_content_between(char *buffer, const char *start_term, const char *end_term, size_t *foundSize);
+extern char *strstr(const char *haystack, const char *needle);
 
 static int http_send_response(struct ws_connection *client,
 	int code, const char *content_type, const uint8_t *body, uint32_t body_len)
@@ -97,9 +106,23 @@ static int http_send_response(struct ws_connection *client,
 	if (!content_type) content_type = "text/plain; charset=utf-8";
 
 	if (content_type) {
-		if ( !ends_with (content_type,"\r\n") ){
+		if ( ends_with (content_type,"\r\n") ){
+			size_t etagSize = 0;
+			if (  get_content_between((char *) content_type,"etag:","\r",&etagSize))   {
+
+				snprintf(customHdrs,sizeof customHdrs,"%s",content_type);			
+			} else {
+				if (  get_content_between((char *) content_type,"Cache-Control:","\r",&etagSize))   {
+					  snprintf(customHdrs,sizeof customHdrs,"%s",content_type);			
+				} else {
+					snprintf(customHdrs,sizeof customHdrs,"Cache-Control: no-cache\r\n%s",content_type);			
+				}
+				
+			}
+
+		} else {
 			// to supply more than just content_type, supply the full header lines, separated by \r\n, ending in \r\n
-			snprintf(customHdrs,sizeof(customHdrs),"Content-Type: %s\r\n",content_type);
+			snprintf(customHdrs,sizeof(customHdrs),"Cache-Control: no-cache\r\nContent-Type: %s\r\n",content_type);
 		}
 	}
 
@@ -109,7 +132,6 @@ static int http_send_response(struct ws_connection *client,
 		"Connection: close\r\n"
 		"%s"
 		"Content-Length: %" PRIu32 "\r\n"
-		"Cache-Control: no-cache\r\n"
 		"\r\n",
 		code, http_reason_phrase(code), customHdrs, body_len);
 
@@ -126,7 +148,7 @@ static int http_send_response(struct ws_connection *client,
 	return 0;
 }
 
-static int http_parse_request_line(char *buf, char **out_method, char **out_path)
+static int http_parse_request_line(char *buf, char **out_method, char **out_path, char **headers)
 {
 	char *sp1 = strchr(buf, ' ');
 	if (!sp1) return -1;
@@ -136,10 +158,45 @@ static int http_parse_request_line(char *buf, char **out_method, char **out_path
 	if (!sp2) return -1;
 	*sp2 = '\0';
 
+	char *sp3;
+	if (headers) {
+		sp3 =  strchr(sp2 + 1, '\n');
+		if (!sp3) return -1;
+	}
+
 	*out_method = buf;
 	*out_path   = sp1 + 1;
+	if (headers) {
+		*headers    = sp3 + 1;
+	}
+	
 	return 0;
 }
+
+
+
+char* get_content_between(char *buffer, const char *start_term, const char *end_term, size_t *foundSize) {
+    // 1. Find the first occurrence of start_term
+    char *start_ptr = strcasestr(buffer, start_term);
+    if (!start_ptr) return NULL;
+
+    // 2. Move pointer to the first character AFTER the start_term
+    char *content_start = start_ptr + strlen(start_term);
+
+    // 3. Find the first occurrence of end_term starting AFTER the start_term
+    char *end_ptr = strcasestr(content_start, end_term);
+    if (!end_ptr) return NULL;
+
+    // 4. Null-terminate the buffer at the start of the end_term
+	if (foundSize) {
+		*foundSize = (size_t) end_ptr - (size_t) content_start;
+	} else {
+    	*end_ptr = '\0';
+	}
+
+    return content_start;
+}
+ 
 
 bool ends_with(const char *str, const char *suffix) {
     if (!str || !suffix) {
@@ -243,9 +300,10 @@ static void serve_static_http(struct ws_frame_data *wfd)
 
 	char *method = NULL;
 	char *path = NULL;
+	char *headers = NULL;
 
 	/* Parse request line in-place (fine: we’re about to close anyway) */
-	if (http_parse_request_line((char *)wfd->frm, &method, &path) < 0)
+	if (http_parse_request_line((char *)wfd->frm, &method, &path, &headers) < 0)
 	{
 		static const uint8_t msg[] = "Bad Request\n";
 		http_send_response(wfd->client, 400, NULL, msg, (uint32_t)sizeof(msg) - 1);
@@ -267,13 +325,28 @@ static void serve_static_http(struct ws_frame_data *wfd)
 		return;
 	}
 
+	size_t etagSize = 0;
+	// do we normally send an etag for this item? if so it will be in our custom headers field
+	char *etag = get_content_between((char *) a->CUSTOM_HEADERS[idx],"etag: \"","\"",&etagSize);
+	if (etag && etagSize == 40) {
+		// make a searchable etag from the etag in the headers we normally send out
+		char findEtag[41]; memcpy(findEtag,etag,40); findEtag[40]=0;
+		size_t gap = 0;
+		const char * ifnonematch  = get_content_between(headers,"if-none-match:",findEtag,&gap);
+		if (ifnonematch && gap < 5)	 {
+			http_send_response(wfd->client, 304, a->CUSTOM_HEADERS[idx], NULL, a->sizes[idx]);
+			return;
+		}
+	}
+
+	
 	if (strcmp(method, "HEAD") == 0)
 	{
-		http_send_response(wfd->client, 200, a->contentType[idx], NULL, a->sizes[idx]);
+		http_send_response(wfd->client, 200, a->CUSTOM_HEADERS[idx], NULL, a->sizes[idx]);
 		return;
 	}
 
-	http_send_response(wfd->client, 200, a->contentType[idx],a->content[idx],a->sizes[idx]);
+	http_send_response(wfd->client, 200, a->CUSTOM_HEADERS[idx],a->content[idx],a->sizes[idx]);
 }
 
 
@@ -337,3 +410,4 @@ static int do_handshake(struct ws_frame_data *wfd)
 	return (0);
 }
 
+#undef CUSTOM_HEADERS
