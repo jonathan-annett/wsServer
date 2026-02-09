@@ -153,9 +153,9 @@ $(TOYWS)/toyws_test: $(TOYWS)/tws_test.o $(TOYWS)/toyws.o
 	$(Q)$(CC) $(CFLAGS) $^ -o $@
 
 # dir2statics tool
-$(DIR2STATICS_BIN): $(DIR2STATICS_SRC)
+$(DIR2STATICS_BIN): $(DIR2STATICS_DIR)/dir2statics.o src/sha1.o
 	@echo "  LINK    $@"
-	$(Q)$(CC) $(CFLAGS) $< -o $@	
+	$(Q)$(CC) $(CFLAGS) $^ -lz -o $@
 
 # Install rules
 install: libws.a wsserver.pc
@@ -230,3 +230,4 @@ clean:
 	@$(MAKE) clean -C tests/
 	@$(MAKE) clean -C tests/fuzzy
 	@rm -f $(ECHO_STATIC_HDR)
+	@rm -f $(DIR2STATICS_DIR)/*.o
