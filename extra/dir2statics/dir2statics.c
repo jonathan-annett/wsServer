@@ -320,12 +320,7 @@ int main(int argc, char **argv)
 		"extern \"C\" {\n"
 		"#endif\n"
 		"\n"
-		"/* Declarations compatible with wsServer statics.h expectations */\n"
-		"const uint32_t static_count;\n"
-		"const char *static_urls[];\n"
-		"const char *static_contentType[];\n"
-		"const uint8_t *static_content[];\n"
-		"const uint32_t static_content_size[];\n"
+		"/* Declarations compatible with wsServer statics.h expectations */\n" 		
 		"void initEmbeddedAssets(void);"
 
 		"typedef struct ws_static_asset_set {\n"
@@ -395,9 +390,9 @@ int main(int argc, char **argv)
 		char arrname[600];
 		snprintf(arrname, sizeof(arrname), "ws_static_%s", ident);
 #ifdef GZIP
-		size_t content_size = emit_u8_gz_array(out, arrname, data, sz);
+		emit_u8_gz_array(out, arrname, data, sz);
 #else
-		size_t content_size = emit_u8_array(out, arrname, data, sz);
+		emit_u8_array(out, arrname, data, sz);
 #endif
 		
 

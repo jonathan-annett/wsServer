@@ -6,11 +6,6 @@ extern "C" {
 #endif
 
 /* Declarations compatible with wsServer statics.h expectations */
-const uint32_t static_count;
-const char *static_urls[];
-const char *static_contentType[];
-const uint8_t *static_content[];
-const uint32_t static_content_size[];
 void initEmbeddedAssets(void);typedef struct ws_static_asset_set {
     uint32_t count;
     const char * const *urls;
