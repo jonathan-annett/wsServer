@@ -5,8 +5,15 @@
 
 wsServer - a very tiny WebSocket server library written in C
 ---
+<center><table><tr><td>
+<a href="https://sora.chatgpt.com/g/gen_01kh0631zdfe2r45rkar9t4cgk"><img width="auto" height="200px" src="now-with-assets1.png"></td></a>
+</td><td>
 <a href="https://gemini.google.com/share/0dcd8c8e124b"><img width="auto" height="200px" src="now-with-assets.png"></td></a>
-
+</td><td>
+<a href="https://gemini.google.com/share/0dcd8c8e124b"><img width="auto" height="200px" src="meow.jpg"></td></a>
+</td><td>
+<a href="https://sora.chatgpt.com/g/gen_01kh0631zcezxsdk6arpgq38jp"><img width="auto" height="200px" src="now-with-assets2.png"></td></a>
+</td></tr></table></center>
 ## Library
 
 wsServer is a tiny, lightweight WebSocket server library written in C that intends
