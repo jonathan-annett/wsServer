@@ -5,7 +5,7 @@
 
 wsServer - a very tiny WebSocket server library written in C
 ---
-<img width="auto" height="200px" src="now-with-assets.png"></td>
+<a href="https://gemini.google.com/share/0dcd8c8e124b"><img width="auto" height="200px" src="now-with-assets.png"></td></a>
 
 ## Library
 
