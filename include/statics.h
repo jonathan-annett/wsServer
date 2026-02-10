@@ -11,7 +11,7 @@ extern char *strcasestr(const char *haystack, const char *needle);
 #include <ctype.h>
 
 #if WS_STATICS
-    #pragma message("wsServer: WS_STATICS enabled (static HTTP fallback compiled in)")
+    #pragma message("wsServer: WS_STATICS enabled (static HTTP assets compiled in)")
 #endif
 
 typedef struct ws_static_asset_set {
