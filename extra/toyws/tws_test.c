@@ -26,10 +26,12 @@ int main(void)
 	char msg[] = "Hello";
 
 	/* Buffer params. */
+	int err;
 	char *buff;
 	int frm_type;
 	size_t buff_size;
 
+	err       = 0;
 	buff      = NULL;
 	buff_size = 0;
 	frm_type  = 0;
@@ -43,7 +45,8 @@ int main(void)
 			"Success" : "Failed"));
 
 	/* Blocks until receive a single message. */
-	if (tws_receiveframe(&ctx, &buff, &buff_size, &frm_type) < 0)
+	tws_receiveframe(&ctx, &buff, &buff_size, &frm_type, &err);
+	if (err < 0)
 		fprintf(stderr, "Unable to receive message!\n");
 
 	printf("I received: (%s) (type: %s)\n", buff,

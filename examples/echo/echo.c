@@ -105,7 +105,7 @@ void onmessage(ws_cli_conn_t client,
 	 *   ws_sendframe_bin()
 	 *   ws_sendframe_bin_bcast()
 	 */
-	ws_sendframe_bcast(8080, (char *)msg, size, type);
+	ws_sendframe_bcast(8080, (const char*)msg, size, type);
 }
 
 /**

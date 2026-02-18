@@ -53,8 +53,8 @@ extern "C" {
 	extern void tws_close(struct tws_ctx *ctx);
 	extern int tws_sendframe(struct tws_ctx *ctx, uint8_t *msg,
 		uint64_t size, int type);
-	extern int tws_receiveframe(struct tws_ctx *ctx, char **buff,
-		size_t *buff_size, int *frm_type);
+	extern uint64_t tws_receiveframe(struct tws_ctx *ctx, char **buff,
+		size_t *buff_size, int *frm_type, int *err);
 
 #ifdef __cplusplus
 }

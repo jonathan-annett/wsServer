@@ -63,8 +63,8 @@ Returns 0 if success, otherwise, a negative number.
 ---
 
 ```c
-int tws_receiveframe(struct tws_ctx *ctx, char **buff, size_t *buff_size,
-    int *frm_type);
+uint64_t tws_receiveframe(struct tws_ctx *ctx, char **buff, size_t *buff_size,
+    int *frm_type, int *err);
 ```
 Receive a frame and save it on `buff`.
 
@@ -89,7 +89,11 @@ points to NULL, `*buff_size` must be equals to 0.
 Frame type read. The frame type received will be reflected into the contents of
 this pointer.
 
-**Return**: Returns 0 if success, a negative number otherwise.
+**`err`:**
+
+Output error code. Set to a negative value on error, 0 on success.
+
+**Return**: Returns frame length on success, 0 on error (check `*err`).
 
 **Note**:
 
@@ -114,10 +118,12 @@ int main(void)
     char msg[] = "Hello";
 
     /* Buffer/frame params. */
+    int err;
     char *buff;
     int frm_type;
     size_t buff_size;
 
+    err       = 0;
     buff      = NULL;
     buff_size = 0;
     frm_type  = 0;
@@ -131,7 +137,8 @@ int main(void)
             "Success" : "Failed"));
 
     /* Blocks until receive a single message. */
-    if (tws_receiveframe(&ctx, &buff, &buff_size, &frm_type) < 0)
+    tws_receiveframe(&ctx, &buff, &buff_size, &frm_type, &err);
+    if (err < 0)
         fprintf(stderr, "Unable to receive message!\n");
 
     printf("I received: (%s) (type: %s)\n", buff,
