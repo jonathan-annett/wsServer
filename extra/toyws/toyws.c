@@ -317,12 +317,12 @@ static int skip_frame(struct tws_ctx *ctx, uint64_t frame_size)
  * @param buff Buffer pointer.
  * @param buff_size Buffer size.
  * @param frm_type Frame type received.
+ * @param err Output error code: set to a negative value on error, 0 on success.
  *
- * @return Returns frame length if success, a negative number
- * otherwise.
+ * @return Returns frame length if success, 0 on error (check @p err).
  */
-int tws_receiveframe(struct tws_ctx *ctx, char **buff,
-	size_t *buff_size, int *frm_type)
+uint64_t tws_receiveframe(struct tws_ctx *ctx, char **buff,
+	size_t *buff_size, int *frm_type, int *err)
 {
 	int ret;
 	char *buf;
@@ -331,9 +331,14 @@ int tws_receiveframe(struct tws_ctx *ctx, char **buff,
 	uint8_t opcode;
 	uint64_t frame_length;
 
+	if (err)
+		*err = 0;
+
 	/* Buffer should be valid. */
-	if (!buff || (*buff && !buff_size))
-		return (-1);
+	if (!buff || (*buff && !buff_size)) {
+		if (err) *err = -1;
+		return (0);
+	}
 
 	ret = 0;
 	cur_byte = next_byte(ctx, &ret);
@@ -343,7 +348,8 @@ int tws_receiveframe(struct tws_ctx *ctx, char **buff,
 	if (opcode == FRM_CLSE)
 	{
 		tws_close(ctx);
-		return (-1);
+		if (err) *err = -1;
+		return (0);
 	}
 
 	frame_length = next_byte(ctx, &ret) & 0x7F;
@@ -369,23 +375,29 @@ int tws_receiveframe(struct tws_ctx *ctx, char **buff,
 	}
 
 	/* Check if any error before proceed. */
-	if (ret)
-		return (ret);
+	if (ret) {
+		if (err) *err = ret;
+		return (0);
+	}
 
 	/*
 	 * If frame is something other than CLSE and TXT/BIN (like PONG
 	 * or CONT), skip.
 	 */
 	if (opcode != FRM_TXT && opcode != FRM_BIN)
-		if (skip_frame(ctx, frame_length) < 0)
-			return (-1);
+		if (skip_frame(ctx, frame_length) < 0) {
+			if (err) *err = -1;
+			return (0);
+		}
 
-	/* Allocate memory, if needed. */
-	if (*buff_size < frame_length)
+	/* Allocate memory, if needed (+1 for null terminator, covers 0-length frames). */
+	if (*buff_size < frame_length + 1)
 	{
 		buf = realloc(*buff, frame_length + 1);
-		if (!buf)
-			return (-1);
+		if (!buf) {
+			if (err) *err = -1;
+			return (0);
+		}
 		*buff = buf;
 		*buff_size = frame_length + 1;
 	}
@@ -396,8 +408,10 @@ int tws_receiveframe(struct tws_ctx *ctx, char **buff,
 	for (i = 0; i < frame_length; i++, buf++)
 	{
 		cur_byte = next_byte(ctx, &ret);
-		if (cur_byte < 0)
-			return (ret == 0 ? (int) frame_length : ret);
+		if (cur_byte < 0) {
+			if (err) *err = ret;
+			return (ret == 0 ? frame_length : 0);
+		}
 
 		*buf = cur_byte;
 	}
@@ -406,5 +420,6 @@ int tws_receiveframe(struct tws_ctx *ctx, char **buff,
 	/* Fill other infos. */
 	*frm_type = opcode;
 
-	return (ret == 0 ? (int) frame_length : ret);
+	if (err) *err = ret;
+	return (ret == 0 ? frame_length : 0);
 }
