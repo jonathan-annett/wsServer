@@ -94,7 +94,6 @@ static const char *http_reason_phrase(int code)
 }
 bool ends_with(const char *str, const char *suffix);
 const char* get_content_between(const char *buffer, const char *start_term, const char *end_term, size_t *foundSize);
-extern char *strstr(const char *haystack, const char *needle);
 
 static int http_send_response(struct ws_connection *client,
 	int code, const char *content_type, const uint8_t *body, uint32_t body_len)
