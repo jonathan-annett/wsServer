@@ -321,7 +321,7 @@ int main(int argc, char **argv)
 		"#endif\n"
 		"\n"
 		"/* Declarations compatible with wsServer statics.h expectations */\n" 		
-		"void initEmbeddedAssets(void);"
+		"void initEmbeddedAssets(void);\n\n"
 
 		"typedef struct ws_static_asset_set {\n"
 		"    uint32_t count;\n"
@@ -330,7 +330,7 @@ int main(int argc, char **argv)
 		"    const uint8_t * const *content;\n"
 		"    const uint32_t *sizes;\n"
 		"} ws_static_asset_set_t;\n\n"
-		"extern char static_root_alias[32];\n\n"
+		"extern char static_root_alias[256];\n\n"
 
 
 		"void ws_set_static_assets(const ws_static_asset_set_t *set);\n"
