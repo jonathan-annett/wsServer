@@ -93,7 +93,7 @@ static const char *http_reason_phrase(int code)
 	}
 }
 bool ends_with(const char *str, const char *suffix);
-char* get_content_between(char *buffer, const char *start_term, const char *end_term, size_t *foundSize);
+const char* get_content_between(const char *buffer, const char *start_term, const char *end_term, size_t *foundSize);
 extern char *strstr(const char *haystack, const char *needle);
 
 static int http_send_response(struct ws_connection *client,
@@ -175,7 +175,7 @@ static int http_parse_request_line(char *buf, char **out_method, char **out_path
 
 
 
-char* get_content_between(char *buffer, const char *start_term, const char *end_term, size_t *foundSize) {
+const char* get_content_between(const char *buffer, const char *start_term, const char *end_term, size_t *foundSize) {
     // 1. Find the first occurrence of start_term
     char *start_ptr = strcasestr(buffer, start_term);
     if (!start_ptr) return NULL;
@@ -188,12 +188,8 @@ char* get_content_between(char *buffer, const char *start_term, const char *end_
     if (!end_ptr) return NULL;
 
     // 4. Null-terminate the buffer at the start of the end_term
-	if (foundSize) {
-		*foundSize = (size_t) end_ptr - (size_t) content_start;
-	} else {
-    	*end_ptr = '\0';
-	}
-
+	*foundSize = (size_t) (end_ptr - content_start);
+	
     return content_start;
 }
  
@@ -327,7 +323,7 @@ static void serve_static_http(struct ws_frame_data *wfd)
 
 	size_t etagSize = 0;
 	// do we normally send an etag for this item? if so it will be in our custom headers field
-	char *etag = get_content_between((char *) a->CUSTOM_HEADERS[idx],"etag: \"","\"",&etagSize);
+	const char *etag = get_content_between((char *) a->CUSTOM_HEADERS[idx],"etag: \"","\"",&etagSize);
 	if (etag && etagSize == 40) {
 		// make a searchable etag from the etag in the headers we normally send out
 		char findEtag[41]; memcpy(findEtag,etag,40); findEtag[40]=0;
