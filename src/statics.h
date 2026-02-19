@@ -35,7 +35,7 @@ static const uint32_t sizes[] = { (uint32_t)(sizeof(default_static_html_text)-1)
 static const ws_static_asset_set_t default_set = {
     1, urls, types, bodies, sizes
 };
-char static_root_alias[32]="/index.html";
+char static_root_alias[256]="/index.html";
 
 ws_static_asset_set_t *g_assets = ( ws_static_asset_set_t *) &default_set;
 
