@@ -330,6 +330,7 @@ static void serve_static_http(struct ws_frame_data *wfd)
 		size_t gap = 0;
 		const char * ifnonematch  = get_content_between(headers,"if-none-match:",findEtag,&gap);
 		if (ifnonematch && gap < 5)	 {
+			/* 304: no body, but Content-Length still reflects the full resource size (RFC 7232) */
 			http_send_response(wfd->client, 304, a->CUSTOM_HEADERS[idx], NULL, a->sizes[idx]);
 			return;
 		}
