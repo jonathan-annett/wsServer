@@ -238,7 +238,7 @@ int main(int argc, char **argv)
 	SHA1Context ctx;                  /* SHA-1 Context.                */
 
 	const char hexEncode[16] = "0123456789ABCDEF";
-	struct {
+	typedef struct {
 			char Etag_Colon_Quote[8]; // 'Etag: \"'
 			char hexhash[SHA1HashSize]; // first 20 hex bytes
 			unsigned char hash[SHA1HashSize]; // second 20 hex bytes, and binary hash temp
@@ -248,7 +248,9 @@ int main(int argc, char **argv)
 #endif
 			char contentTypeTag[14];  // 'Content-Type: '
 			char contentType[64]; //
-		} CustomHeader, *cHdr;
+		} CustomHeader_t;
+		
+	CustomHeader_t CustomHeader, *cHdr;
 	
 	char * c;
 	c = &CustomHeader.Etag_Colon_Quote[0]; sprintf(c,"Etag: %c",'\\');c[7]='"';
@@ -276,7 +278,7 @@ int main(int argc, char **argv)
 	char **names = (char **)malloc(cap * sizeof(char *));
 	if (!names) die("malloc");
 
-	cHdr = malloc(cap * sizeof(CustomHeader));
+	cHdr = malloc(cap * sizeof(CustomHeader_t));
 	if (!cHdr) die("malloc");
 
 
@@ -298,9 +300,9 @@ int main(int argc, char **argv)
 			if (!tmp) die("realloc");
 			names = tmp;
 
-			tmp = (char **)realloc(cHdr, cap * sizeof(CustomHeader));
-			if (!tmp) die("realloc");
-			cHdr = (void*) tmp;
+			CustomHeader_t *tmp2 = (CustomHeader_t *)realloc(cHdr, cap * sizeof(CustomHeader_t));
+			if (!tmp2) die("realloc");
+			cHdr = tmp2;
 		}
 		names[count++] = xstrdup(nm);
 	}
@@ -385,7 +387,7 @@ int main(int argc, char **argv)
 		snprintf(CustomHeader.contentType,sizeof (CustomHeader.contentType),"%s\\r\\n", content_type_for_filename(names[i]));
 
 		// copy the entire struct (maps to null termed string)
-		memmove( &cHdr[i], &CustomHeader, sizeof(CustomHeader));
+		memmove( &cHdr[i], &CustomHeader, sizeof(CustomHeader_t));
 
 		char arrname[600];
 		snprintf(arrname, sizeof(arrname), "ws_static_%s", ident);
