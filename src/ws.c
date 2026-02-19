@@ -1011,7 +1011,7 @@ static inline int is_valid_frame(int opcode)
 }
 
 #ifdef WS_STATICS
-#include <statics.h>
+#include "statics.h"
 #else
 
 /**
