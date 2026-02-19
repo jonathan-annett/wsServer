@@ -6,7 +6,9 @@ extern "C" {
 #endif
 
 /* Declarations compatible with wsServer statics.h expectations */
-void initEmbeddedAssets(void);typedef struct ws_static_asset_set {
+void initEmbeddedAssets(void);
+
+typedef struct ws_static_asset_set {
     uint32_t count;
     const char * const *urls;
     const char * const *contentType;
@@ -14,7 +16,7 @@ void initEmbeddedAssets(void);typedef struct ws_static_asset_set {
     const uint32_t *sizes;
 } ws_static_asset_set_t;
 
-extern char static_root_alias[32];
+extern char static_root_alias[256];
 
 void ws_set_static_assets(const ws_static_asset_set_t *set);
 

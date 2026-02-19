@@ -21,6 +21,9 @@
 #include <unistd.h>
 #include <ws.h>
 
+#define WS_STATICS_DATA_IMPLEMENTATION
+#include "echo-static.h"
+
 /**
  * @dir examples/
  * @brief wsServer examples folder
@@ -116,6 +119,7 @@ void onmessage(ws_cli_conn_t client,
  */
 int main(void)
 {
+	initEmbeddedAssets();
 	ws_socket(&(struct ws_server){
 		/*
 		 * Bind host:
