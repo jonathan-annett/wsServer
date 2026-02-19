@@ -82,12 +82,12 @@ int get_handshake_accept(char *wsKey, unsigned char **dest)
  * @returns If found, returns a pointer at the beginning of the
  * found substring. Otherwise, returns NULL.
  */
-static char *strstricase(const char *haystack, const char *needle)
+static const char *strstricase(const char *haystack, const char *needle)
 {
 	size_t length;
 	for (length = strlen(needle); *haystack; haystack++)
 		if (!strncasecmp(haystack, needle, length))
-			return (char*)haystack;
+			return haystack;
 	return (NULL);
 }
 
